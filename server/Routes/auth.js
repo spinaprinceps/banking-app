@@ -4,17 +4,18 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { z } = require('zod');
 const twilio = require('twilio');
-require('dotenv').config();
 
-const User = require('../models/User');
+
+const User = require('../Model/user.js');
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'defaultsecret';
+const JWT_SECRET =  'defaultsecret';
 
 // Twilio (Verify service)
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_SID;
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-const TWILIO_VERIFY_SID = process.env.TWILIO_VERIFY_SID; // required for Verify usage
+const TWILIO_ACCOUNT_SID="AC0e8186b39195da43e5a533e20943ad31"
+const TWILIO_AUTH_TOKEN="db32b63e68800b1b473a054892a6e9b4"
+const TWILIO_VERIFY_SID="VA7fb53c46e5322c07b5a505cb72be1180"
+// required for Verify usage
 
 if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_VERIFY_SID) {
   console.warn('TWILIO environment variables are not fully set. Twilio Verify calls will fail until TWILIO_SID, TWILIO_AUTH_TOKEN, and TWILIO_VERIFY_SID are present.');
@@ -29,11 +30,11 @@ const signupSchema = z.object({
   gender: z.enum(['Male', 'Female', 'Other']),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
-
 const loginSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
+  mobile: z.string().regex(/^\d{10}$/, 'Mobile number must be 10 digits'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
+
 
 /* -------------------- Helper: send verification (Twilio Verify) -------------------- */
 async function sendVerificationSms(mobile) {
@@ -118,17 +119,23 @@ router.post('/verify-signup-otp', async (req, res) => {
   }
 });
 
-/* -------------------- Login: name + password -> send OTP -------------------- */
+/* -------------------- Login: mobile + password -> send OTP -------------------- */
 router.post('/login', async (req, res) => {
   try {
-    const { name, password } = loginSchema.parse(req.body);
+    const { mobile, password } = z.object({
+      mobile: z.string().regex(/^\d{10}$/, 'Mobile must be 10 digits'),
+      password: z.string().min(6, 'Password must be at least 6 characters'),
+    }).parse(req.body);
 
-    const user = await User.findOne({ name });
-    if (!user) return res.status(400).json({ message: 'Invalid username or password' });
+    // Check if user exists
+    const user = await User.findOne({ mobile });
+    if (!user) return res.status(400).json({ message: 'Invalid mobile or password' });
 
+    // Compare password
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(400).json({ message: 'Invalid username or password' });
+    if (!match) return res.status(400).json({ message: 'Invalid mobile or password' });
 
+    // Check if account is verified
     if (!user.isVerified) {
       return res.status(400).json({ message: 'Account not verified. Please complete mobile verification.' });
     }
@@ -136,7 +143,10 @@ router.post('/login', async (req, res) => {
     // Send OTP for login confirmation
     await sendVerificationSms(user.mobile);
 
-    return res.json({ message: 'Password verified — OTP sent to registered mobile. Use /verify-login-otp to complete login.' });
+    return res.json({ 
+      message: 'Password verified — OTP sent to mobile. Use /verify-login-otp to complete login.' 
+    });
+
   } catch (err) {
     return res.status(400).json({ error: err.message });
   }
@@ -145,25 +155,34 @@ router.post('/login', async (req, res) => {
 /* -------------------- Verify login OTP -> issue JWT -------------------- */
 router.post('/verify-login-otp', async (req, res) => {
   try {
-    const body = z.object({
-      name: z.string().min(2),
-      code: z.string().min(4),
+    const { mobile, code } = z.object({
+      mobile: z.string().regex(/^\d{10}$/, 'Mobile must be 10 digits'),
+      code: z.string().min(4, 'OTP must be at least 4 digits'),
     }).parse(req.body);
 
-    const user = await User.findOne({ name: body.name });
+    // Fetch user by mobile
+    const user = await User.findOne({ mobile });
     if (!user) return res.status(400).json({ message: 'User not found' });
 
-    const verification = await checkVerificationCode(user.mobile, body.code);
+    // Verify OTP with Twilio
+    const verification = await checkVerificationCode(mobile, code);
     if (verification.status !== 'approved') {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
 
-    // OTP verified => sign and return JWT
-    const token = jwt.sign({ userId: user._id, name: user.name }, JWT_SECRET, { expiresIn: '1h' });
+    // OTP verified => issue JWT
+    const token = jwt.sign(
+      { userId: user._id, mobile: user.mobile },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
     return res.json({ message: 'Login successful', token });
+
   } catch (err) {
     return res.status(400).json({ error: err.message });
   }
 });
+
 
 module.exports = router;
