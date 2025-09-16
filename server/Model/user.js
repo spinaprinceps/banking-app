@@ -6,8 +6,6 @@ const userSchema = new mongoose.Schema({
     type: String, 
     required: true, 
     trim: true,
-    // If you want usernames to be unique, uncomment the next line:
-    // unique: true,
   },
   mobile: {
     type: String,
@@ -34,7 +32,20 @@ const userSchema = new mongoose.Schema({
   isVerified: { 
     type: Boolean, 
     default: false 
-  }
+  },
+
+  // 🔹 New fields for banking
+  balance: { 
+    type: Number, 
+    default: 0.0 
+  },
+  transactions: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Transaction"
+    }
+  ]
+
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);

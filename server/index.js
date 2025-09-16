@@ -24,6 +24,10 @@ app.use(cors({
 const authRoutes = require("./routes/auth");
 app.use("/auth", authRoutes);
 
+const balance=require("./routes/balance");
+app.use("/auth/balance",balance);
+
+
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({ error: "Internal Server Error" });
