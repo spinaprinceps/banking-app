@@ -11,10 +11,10 @@ const User = require('../Model/user.js');
 const router = express.Router();
 const JWT_SECRET =  'defaultsecret';
 
-// Twilio (Verify service)
-const TWILIO_ACCOUNT_SID="AC0e8186b39195da43e5a533e20943ad31"
-const TWILIO_AUTH_TOKEN="db32b63e68800b1b473a054892a6e9b4"
-const TWILIO_VERIFY_SID="VA7fb53c46e5322c07b5a505cb72be1180"
+// Twilio (Verify service) 
+const TWILIO_ACCOUNT_SID=process.env.TWILIO_ACCOUNT_SID
+const TWILIO_AUTH_TOKEN=process.env.TWILIO_AUTH_TOKEN
+const TWILIO_VERIFY_SID=process.env.TWILIO_VERIFY_SID
 // required for Verify usage
 
 if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_VERIFY_SID) {
