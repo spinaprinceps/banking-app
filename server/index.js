@@ -13,7 +13,7 @@ const app = express();
 app.use(express.json());
 app.use(cors({
   origin: [
-    'http://localhost:5173', // Local development
+    'http://localhost:5173','*' // Local development
      // Replace with your frontend URL for production
   ],
   credentials: true,
@@ -21,7 +21,7 @@ app.use(cors({
 }));
 
 // Public routes
-const authRoutes = require("./routes/auth");
+const authRoutes = require("./Routes/auth");
 app.use("/auth", authRoutes);
 
 const balance=require("./routes/balance");

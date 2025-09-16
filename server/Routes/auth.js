@@ -126,7 +126,7 @@ router.post('/login', async (req, res) => {
       mobile: z.string().regex(/^\d{10}$/, 'Mobile must be 10 digits'),
       password: z.string().min(6, 'Password must be at least 6 characters'),
     }).parse(req.body);
-
+    
     // Check if user exists
     const user = await User.findOne({ mobile });
     if (!user) return res.status(400).json({ message: 'Invalid mobile or password' });
@@ -142,14 +142,14 @@ router.post('/login', async (req, res) => {
 
     // Send OTP for login confirmation
     await sendVerificationSms(user.mobile);
-
+  
     return res.json({ 
       message: 'Password verified — OTP sent to mobile. Use /verify-login-otp to complete login.' 
     });
 
   } catch (err) {
     return res.status(400).json({ error: err.message });
-  }
+  } 
 });
 
 /* -------------------- Verify login OTP -> issue JWT -------------------- */
