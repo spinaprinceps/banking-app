@@ -27,6 +27,12 @@ app.use("/auth", authRoutes);
 const balance=require("./routes/balance");
 app.use("/auth/balance",balance);
 
+const sendmoney = require("./routes/payment");
+app.use("/auth/payment", sendmoney);
+
+const transaction=require("./routes/transaction");
+app.use("/auth/transaction",transaction);
+
 
 app.use((err, req, res, next) => {
     console.error(err.stack);

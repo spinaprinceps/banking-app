@@ -10,7 +10,7 @@ router.get('/balance', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("Error fetching balance:", err);
     res.status(500).json({ message: "Server error" });
-  }
+  } 
 });
 
 module.exports = router;

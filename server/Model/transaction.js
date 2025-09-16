@@ -1,32 +1,31 @@
-
 const mongoose = require("mongoose");
 
 const transactionSchema = new mongoose.Schema({
   sender: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    required: true
+    required: true,
   },
   receiver: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    required: true
+    required: true,
   },
   amount: {
     type: Number,
-    required: true
+    required: true,
+    min: 1,
   },
   status: {
     type: String,
-    enum: ["success", "failed", "pending"],
-    default: "success"
+    enum: ["PENDING", "SUCCESS", "FAILED"],
+    default: "PENDING",
   },
-  timestamp: {
+  date: {
     type: Date,
-    default: Date.now
+    default: Date.now,   // 🔹 Explicit transaction date
   }
-});
+}, { timestamps: true }); // 🔹 Auto adds createdAt, updatedAt
 
 const Transaction = mongoose.model("Transaction", transactionSchema);
-
 module.exports = Transaction;
