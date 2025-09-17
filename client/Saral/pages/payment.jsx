@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Send, CreditCard, DollarSign, Shield, Eye, EyeOff, CheckCircle, X, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Send, Smartphone, DollarSign, Shield, Eye, EyeOff, CheckCircle, X, AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import api from '../api.js'
 
 const NewPaymentPage = () => {
   const [formData, setFormData] = useState({
-    receiverAadhaar: '',
+    receiverMobile: '',
     amount: '',
     password: ''
   });
@@ -14,7 +16,8 @@ const NewPaymentPage = () => {
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState('');
-
+  const [authToken, setAuthToken] = useState(null);
+  const nav=useNavigate();
   // Sample user data (in real app, this would come from context/props)
   const [userData] = useState({
     name: "Ravi Kumar",
@@ -25,17 +28,28 @@ const NewPaymentPage = () => {
 
   const [currentLanguage] = useState('english');
 
+  // Get auth token from localStorage on component mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      setAuthToken(token);
+    } else {
+      console.error('No auth token found. User needs to login.');
+      // In real app, redirect to login page
+    }
+  }, []);
+
   const translations = {
     english: {
       title: "New Payment",
       subtitle: "Send money securely",
       bankName: "GramSeva Bank",
       form: {
-        receiverAadhaar: "Receiver's Aadhaar Number",
-        receiverPlaceholder: "Enter 12-digit Aadhaar number",
+        receiverMobile: "Receiver's Mobile Number",
+        receiverPlaceholder: "Enter 10-digit mobile number",
         amount: "Amount to Send",
         amountPlaceholder: "Enter amount in ₹",
-        password: "Enter Password",
+        password: "Your Account Password",
         passwordPlaceholder: "Enter your account password"
       },
       buttons: {
@@ -46,14 +60,15 @@ const NewPaymentPage = () => {
         makeAnotherPayment: "Make Another Payment"
       },
       validation: {
-        aadhaarRequired: "Receiver's Aadhaar number is required",
-        aadhaarInvalid: "Aadhaar number must be 12 digits",
-        aadhaarSame: "Cannot send money to your own account",
+        mobileRequired: "Receiver's mobile number is required",
+        mobileInvalid: "Mobile number must be 10 digits",
+        mobileSame: "Cannot send money to your own number",
         amountRequired: "Amount is required",
         amountInvalid: "Please enter a valid amount",
         amountMin: "Minimum amount is ₹1",
         amountMax: "Amount exceeds your balance",
-        passwordRequired: "Password is required"
+        passwordRequired: "Password is required",
+        tokenMissing: "Authentication token missing. Please login again."
       },
       popup: {
         confirmTitle: "Confirm Payment",
@@ -62,7 +77,7 @@ const NewPaymentPage = () => {
         amountLabel: "Amount",
         feeLabel: "Transaction Fee",
         totalLabel: "Total Amount",
-        passwordLabel: "Enter Password to Confirm",
+        passwordLabel: "Enter Your Password to Confirm",
         securityNote: "Your transaction is secured with bank-grade encryption"
       },
       success: {
@@ -79,7 +94,9 @@ const NewPaymentPage = () => {
         generic: "Payment failed. Please try again.",
         insufficientBalance: "Insufficient balance",
         invalidCredentials: "Invalid password",
-        networkError: "Network error. Please check your connection."
+        networkError: "Network error. Please check your connection.",
+        unauthorized: "Session expired. Please login again.",
+        tokenExpired: "Authentication token expired. Please login again."
       }
     }
   };
@@ -89,12 +106,17 @@ const NewPaymentPage = () => {
   const validateForm = () => {
     const newErrors = {};
     
-    if (!formData.receiverAadhaar) {
-      newErrors.receiverAadhaar = t.validation.aadhaarRequired;
-    } else if (formData.receiverAadhaar.length !== 12 || !/^\d{12}$/.test(formData.receiverAadhaar)) {
-      newErrors.receiverAadhaar = t.validation.aadhaarInvalid;
-    } else if (formData.receiverAadhaar === userData.aadhaar) {
-      newErrors.receiverAadhaar = t.validation.aadhaarSame;
+    // Check for auth token
+    if (!authToken) {
+      newErrors.token = t.validation.tokenMissing;
+    }
+    
+    if (!formData.receiverMobile) {
+      newErrors.receiverMobile = t.validation.mobileRequired;
+    } else if (formData.receiverMobile.length !== 10 || !/^\d{10}$/.test(formData.receiverMobile)) {
+      newErrors.receiverMobile = t.validation.mobileInvalid;
+    } else if (formData.receiverMobile === userData.mobile) {
+      newErrors.receiverMobile = t.validation.mobileSame;
     }
     
     if (!formData.amount) {
@@ -121,6 +143,10 @@ const NewPaymentPage = () => {
       newErrors.password = t.validation.passwordRequired;
     }
     
+    if (!authToken) {
+      newErrors.token = t.validation.tokenMissing;
+    }
+    
     setErrors(prev => ({ ...prev, ...newErrors }));
     return Object.keys(newErrors).length === 0;
   };
@@ -128,9 +154,16 @@ const NewPaymentPage = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
-    // Format amount input
-    if (name === 'amount') {
-      // Only allow numbers and decimal point
+    // Format mobile input - only numbers
+    if (name === 'receiverMobile') {
+      const formattedValue = value.replace(/[^0-9]/g, '').slice(0, 10);
+      setFormData(prev => ({
+        ...prev,
+        [name]: formattedValue
+      }));
+    }
+    // Format amount input - only numbers and decimal point
+    else if (name === 'amount') {
       const formattedValue = value.replace(/[^0-9.]/g, '');
       setFormData(prev => ({
         ...prev,
@@ -163,53 +196,85 @@ const NewPaymentPage = () => {
   };
 
   const handleConfirmPayment = async (e) => {
-    e.preventDefault();
-    
-    if (!validatePassword()) {
-      return;
-    }
-    
-    setPaymentProcessing(true);
-    setPaymentError('');
-    
-    try {
-      // Simulate API call
-      console.log('Processing payment:', {
-        sender: userData.aadhaar,
-        receiver: formData.receiverAadhaar,
-        amount: formData.amount,
-        timestamp: new Date().toISOString()
-      });
-      
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Simulate success (in real app, this would be based on API response)
-      const success = Math.random() > 0.1; // 90% success rate for demo
-      
-      if (success) {
-        setPaymentSuccess(true);
-        setShowPasswordPopup(false);
+  e.preventDefault();
+
+  if (!validatePassword()) {
+    return;
+  }
+
+  setPaymentProcessing(true);
+  setPaymentError("");
+
+  try {
+    // Prepare payment data
+    const paymentData = {
+      receiverNumber: formData.receiverMobile,
+      amount: parseFloat(formData.amount),
+      password: formData.password,
+    };
+
+    console.log("Sending payment request with token:", authToken);
+    console.log("Payment data:", paymentData);
+
+    // Axios request
+    const response = await api.post("/auth/payment/transfer", paymentData, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+
+    // ✅ Axios response
+    const result = response.data;
+
+    console.log("Payment successful:", result);
+    setPaymentSuccess(true);
+    setShowPasswordPopup(false);
+
+    // Clear sensitive data
+    setFormData((prev) => ({
+      ...prev,
+      password: "",
+    }));
+
+  } catch (error) {
+    console.error("Payment failed:", error);
+
+    if (error.response) {
+      const { status, data } = error.response;
+
+      // 🔹 Match backend response
+      if (data.message === "Insufficient balance") {
+        setPaymentError("Insufficient balance for this transaction.");
+      } else if (data.message === "Invalid credentials") {
+        setPaymentError("Incorrect password. Please try again.");
+      } else if (status === 401) {
+        setPaymentError("Unauthorized. Please log in again.");
+        localStorage.removeItem("authToken");
+        setAuthToken(null);
+      } else if (status === 403) {
+        setPaymentError("Session expired. Please log in again.");
+        localStorage.removeItem("authToken");
+        setAuthToken(null);
       } else {
-        setPaymentError(t.errors.generic);
+        setPaymentError(data.message || "Payment failed. Please try again.");
       }
-      
-    } catch (error) {
-      console.error('Payment error:', error);
-      setPaymentError(t.errors.networkError);
-    } finally {
-      setPaymentProcessing(false);
+    } else {
+      setPaymentError("Network error. Please check your connection.");
     }
-  };
+  } finally {
+    setPaymentProcessing(false);
+  }
+};
 
   const handleBackToDashboard = () => {
     console.log('Navigate back to dashboard');
     // In real app, this would use router to navigate
+    nav("/userDashboard")
   };
 
   const handleMakeAnotherPayment = () => {
     setFormData({
-      receiverAadhaar: '',
+      receiverMobile: '',
       amount: '',
       password: ''
     });
@@ -226,8 +291,8 @@ const NewPaymentPage = () => {
     }).format(amount);
   };
 
-  const maskAadhaar = (aadhaar) => {
-    return `XXXX XXXX ${aadhaar.slice(-4)}`;
+  const formatMobile = (mobile) => {
+    return `+91 ${mobile}`;
   };
 
   const calculateTotal = () => {
@@ -235,6 +300,33 @@ const NewPaymentPage = () => {
     const fee = 0; // Free transactions
     return amount + fee;
   };
+
+  // Show error if no token
+  if (!authToken) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertTriangle className="text-red-600" size={48} />
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            Authentication Required
+          </h2>
+          <p className="text-gray-600 mb-8">
+            Please login to continue with payment
+          </p>
+          
+          <button
+            onClick={() => nav("/login")}
+            className="w-full py-3 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (paymentSuccess) {
     return (
@@ -262,7 +354,7 @@ const NewPaymentPage = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">{t.success.receiver}:</span>
-              <span className="font-mono text-sm">{maskAadhaar(formData.receiverAadhaar)}</span>
+              <span className="font-mono text-sm">{formatMobile(formData.receiverMobile)}</span>
             </div>
           </div>
           
@@ -331,26 +423,29 @@ const NewPaymentPage = () => {
 
           {/* Payment Form */}
           <form onSubmit={handleProceedPayment} className="space-y-6">
-            {/* Receiver Aadhaar Field */}
+            {/* Receiver Mobile Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t.form.receiverAadhaar} *
+                {t.form.receiverMobile} *
               </label>
               <div className="relative">
-                <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <Smartphone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <div className="absolute left-10 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+                  +91
+                </div>
                 <input
                   type="text"
-                  name="receiverAadhaar"
-                  value={formData.receiverAadhaar}
+                  name="receiverMobile"
+                  value={formData.receiverMobile}
                   onChange={handleInputChange}
                   placeholder={t.form.receiverPlaceholder}
-                  maxLength={12}
-                  className={`w-full pl-10 pr-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors ${
-                    errors.receiverAadhaar ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-green-500'
+                  maxLength={10}
+                  className={`w-full pl-16 pr-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors ${
+                    errors.receiverMobile ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-green-500'
                   }`}
                 />
               </div>
-              {errors.receiverAadhaar && <p className="text-red-500 text-sm mt-1">{errors.receiverAadhaar}</p>}
+              {errors.receiverMobile && <p className="text-red-500 text-sm mt-1">{errors.receiverMobile}</p>}
             </div>
 
             {/* Amount Field */}
@@ -392,10 +487,19 @@ const NewPaymentPage = () => {
               )}
             </div>
 
+            {/* Global Error Messages */}
+            {errors.token && (
+              <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <AlertTriangle className="text-red-500" size={20} />
+                <p className="text-red-600 text-sm">{errors.token}</p>
+              </div>
+            )}
+
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full py-4 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-xl font-semibold text-lg hover:shadow-lg transition-all duration-300"
+              disabled={!authToken}
+              className="w-full py-4 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-xl font-semibold text-lg hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {t.buttons.proceedPayment}
             </button>
@@ -429,7 +533,7 @@ const NewPaymentPage = () => {
             <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-600">{t.popup.receiverLabel}:</span>
-                <span className="font-mono text-sm">{maskAadhaar(formData.receiverAadhaar)}</span>
+                <span className="font-mono text-sm">{formatMobile(formData.receiverMobile)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">{t.popup.amountLabel}:</span>

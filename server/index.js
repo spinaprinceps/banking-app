@@ -13,7 +13,7 @@ const app = express();
 app.use(express.json());
 app.use(cors({
   origin: [
-    'http://localhost:5174','*' // Local development
+    'http://localhost:5173','*' // Local development
      // Replace with your frontend URL for production
   ],
   credentials: true,
@@ -33,9 +33,8 @@ app.use("/auth/payment", sendmoney);
 const user_identity = require("./Routes/identity");
 app.use("/auth", user_identity);
 
-// const transaction=require("./Routes/transaction");
-// app.use("/auth/transaction",transaction);
-
+const transaction=require("./Routes/trans");
+app.use("/auth/transaction",transaction);
 
 app.use((err, req, res, next) => {
     console.error(err.stack);

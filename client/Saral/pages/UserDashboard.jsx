@@ -8,6 +8,7 @@ const UserDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null);
+  const [transactions, setTransactionsData]= useState([]);
   const nav=useNavigate();
 
   // const [userData] = useState({
@@ -18,58 +19,58 @@ const UserDashboard = () => {
   // });
 
   // Sample transaction data (in real app, this would come from API)
-  const [transactions] = useState([
-    {
-      id: 1,
-      sender: "9876543210",
-      receiver: "8765432109",
-      amount: 500.00,
-      status: "completed",
-      date: "2024-09-15",
-      time: "14:30",
-      type: "sent"
-    },
-    {
-      id: 2,
-      sender: "7654321098",
-      receiver: "9876543210",
-      amount: 1200.00,
-      status: "completed",
-      date: "2024-09-14",
-      time: "10:15",
-      type: "received"
-    },
-    {
-      id: 3,
-      sender: "9876543210",
-      receiver: "6543210987",
-      amount: 750.00,
-      status: "pending",
-      date: "2024-09-13",
-      time: "16:45",
-      type: "sent"
-    },
-    {
-      id: 4,
-      sender: "5432109876",
-      receiver: "9876543210",
-      amount: 2000.00,
-      status: "failed",
-      date: "2024-09-12",
-      time: "09:20",
-      type: "received"
-    },
-    {
-      id: 5,
-      sender: "9876543210",
-      receiver: "4321098765",
-      amount: 300.00,
-      status: "completed",
-      date: "2024-09-11",
-      time: "18:30",
-      type: "sent"
-    }
-  ]);
+  // const [transactions] = useState([
+  //   {
+  //     id: 1,
+  //     sender: "9876543210",
+  //     receiver: "8765432109",
+  //     amount: 500.00,
+  //     status: "completed",
+  //     date: "2024-09-15",
+  //     time: "14:30",
+  //     type: "sent"
+  //   },
+  //   {
+  //     id: 2,
+  //     sender: "7654321098",
+  //     receiver: "9876543210",
+  //     amount: 1200.00,
+  //     status: "completed",
+  //     date: "2024-09-14",
+  //     time: "10:15",
+  //     type: "received"
+  //   },
+  //   {
+  //     id: 3,
+  //     sender: "9876543210",
+  //     receiver: "6543210987",
+  //     amount: 750.00,
+  //     status: "pending",
+  //     date: "2024-09-13",
+  //     time: "16:45",
+  //     type: "sent"
+  //   },
+  //   {
+  //     id: 4,
+  //     sender: "5432109876",
+  //     receiver: "9876543210",
+  //     amount: 2000.00,
+  //     status: "failed",
+  //     date: "2024-09-12",
+  //     time: "09:20",
+  //     type: "received"
+  //   },
+  //   {
+  //     id: 5,
+  //     sender: "9876543210",
+  //     receiver: "4321098765",
+  //     amount: 300.00,
+  //     status: "completed",
+  //     date: "2024-09-11",
+  //     time: "18:30",
+  //     type: "sent"
+  //   }
+  // ]);
 
   const lang= localStorage.getItem("appLanguage")
   const [currentLanguage] = useState(lang);
@@ -101,7 +102,7 @@ const UserDashboard = () => {
       time: "Time"
     },
     status: {
-      completed: "Completed",
+      success: "success",
       pending: "Pending",
       failed: "Failed"
     },
@@ -175,12 +176,10 @@ const UserDashboard = () => {
   }
 };
 
-
-
 const t = translations[currentLanguage];
 
 useEffect(() => {
-  const fetchIdentity = async () => {
+  const fetchInformation = async () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
@@ -194,6 +193,12 @@ useEffect(() => {
         },
       });
 
+      const history= await api.get("/auth/transaction/history",{
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      setTransactionsData(history.data.transactions || []);
       setUserData(res.data.user); // depends on how backend sends it
     } catch (err) {
       console.error("Failed to fetch identity:", err);
@@ -204,12 +209,12 @@ useEffect(() => {
     }
   };
 
-  fetchIdentity();
+  fetchInformation();
 }, [nav]);
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'completed':
+      case 'success':
         return <CheckCircle className="text-green-500" size={16} />;
       case 'pending':
         return <AlertCircle className="text-yellow-500" size={16} />;
@@ -222,7 +227,7 @@ useEffect(() => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'completed':
+      case 'success':
         return 'text-green-600 bg-green-50';
       case 'pending':
         return 'text-yellow-600 bg-yellow-50';
@@ -253,6 +258,7 @@ useEffect(() => {
 
   const navigateToNewPayment = () => {
     console.log('Navigate to new payment page');
+    nav("/payment")
     // In real app, this would use router to navigate
   };
 if (loading) return <div>Loading...</div>;  // show while fetching

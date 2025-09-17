@@ -8,7 +8,7 @@ const router = express.Router();
 // Fetch logged-in user identity
 router.get("/identity", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("name mobile aadhar gender");
+    const user = await User.findById(req.user._id).select("name mobile aadhar gender balance");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -21,7 +21,7 @@ router.get("/identity", authMiddleware, async (req, res) => {
         mobile: user.mobile,
         aadhar: user.aadhar,
         gender: user.gender,
-        balance:user.balance,
+        balance:user.balance
       },
     });
   } catch (err) {
