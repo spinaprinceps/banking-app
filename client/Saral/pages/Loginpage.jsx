@@ -203,7 +203,7 @@ const LoginPage = () => {
       console.log(response.data.message);
 
       localStorage.setItem("token", response.data.token);
-      nav("/dashboard");
+      nav("/userDashboard");
 
     } catch (error) {
       console.error("Login error:", error.response?.data || error.message);
