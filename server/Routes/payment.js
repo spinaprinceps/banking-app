@@ -8,12 +8,12 @@ router.post("/transfer", async (req, res) => {
   try {
     const { senderAadhar, receiverAadhar, amount } = req.body;
 
-    // Validate input
+    
     if (!senderAadhar || !receiverAadhar || !amount) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // Find sender and receiver
+    
     const sender = await User.findOne({ aadhar: senderAadhar });
     const receiver = await User.findOne({ aadhar: receiverAadhar });
 
@@ -21,9 +21,9 @@ router.post("/transfer", async (req, res) => {
       return res.status(404).json({ message: "Sender or Receiver not found" });
     }
 
-    // Check balance
+    
     if (sender.balance < amount) {
-      // Record failed transaction
+      
       const failedTx = new Transaction({
         sender: sender._id,
         receiver: receiver._id,
@@ -35,14 +35,14 @@ router.post("/transfer", async (req, res) => {
       return res.status(400).json({ message: "Insufficient balance", transaction: failedTx });
     }
 
-    // Deduct from sender, credit to receiver
+    
     sender.balance -= amount;
     receiver.balance += amount;
 
     await sender.save();
     await receiver.save();
 
-    // Create transaction record
+    
     const transaction = new Transaction({
       sender: sender._id,
       receiver: receiver._id,
