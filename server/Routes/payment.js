@@ -1,29 +1,33 @@
+// routes/payment.js
 const express = require("express");
 const router = express.Router();
+const bcrypt = require("bcryptjs");
+const authMiddleware = require("../Middleware/middleware");
 const User = require("../Model/user");
 const Transaction = require("../Model/transaction");
 
-// 🔹 Transfer money
-router.post("/transfer", async (req, res) => {
+// POST /auth/payment/transfer
+router.post("/transfer", authMiddleware, async (req, res) => {
   try {
-    const { senderAadhar, receiverAadhar, amount } = req.body;
+    const sender = req.user; // from middleware
+    const { receiverNumber, amount, password } = req.body;
 
-    
-    if (!senderAadhar || !receiverAadhar || !amount) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!receiverNumber || !amount || !password) {
+      return res.status(400).json({ message: "Receiver number, amount, and password are required" });
     }
 
-    
-    const sender = await User.findOne({ aadhar: senderAadhar });
-    const receiver = await User.findOne({ aadhar: receiverAadhar });
-
-    if (!sender || !receiver) {
-      return res.status(404).json({ message: "Sender or Receiver not found" });
+    // Check if entered password matches sender's stored password
+    const isPasswordValid = await bcrypt.compare(password, sender.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Invalid password" });
     }
 
-    
+    const receiver = await User.findOne({ mobile: receiverNumber });
+    if (!receiver) {
+      return res.status(404).json({ message: "Receiver not found" });
+    }
+
     if (sender.balance < amount) {
-      
       const failedTx = new Transaction({
         sender: sender._id,
         receiver: receiver._id,
@@ -32,29 +36,49 @@ router.post("/transfer", async (req, res) => {
       });
       await failedTx.save();
 
-      return res.status(400).json({ message: "Insufficient balance", transaction: failedTx });
+      return res.status(400).json({ 
+        message: "Insufficient balance", 
+        transaction: {
+          sender: sender.mobile,
+          receiver: receiver.mobile,
+          amount,
+          status: "failed",
+          date: new Date().toISOString().split("T")[0],
+          time: new Date().toISOString().split("T")[1].slice(0,5),
+          type: "sent"
+        } 
+      });
     }
 
-    
+    // Deduct from sender, credit to receiver
     sender.balance -= amount;
     receiver.balance += amount;
 
     await sender.save();
     await receiver.save();
 
-    
     const transaction = new Transaction({
       sender: sender._id,
       receiver: receiver._id,
       amount,
       status: "SUCCESS"
     });
-
     await transaction.save();
+
+    const formattedTx = {
+      id: transaction._id,
+      sender: sender.mobile,
+      receiver: receiver.mobile,
+      amount,
+      status: "success",
+      date: transaction.date.toISOString().split("T")[0],
+      time: transaction.date.toISOString().split("T")[1].slice(0,5),
+      type: "sent"
+    };
 
     return res.status(201).json({
       message: "Transaction successful",
-      transaction,
+      transaction: formattedTx,
       senderBalance: sender.balance,
       receiverBalance: receiver.balance
     });

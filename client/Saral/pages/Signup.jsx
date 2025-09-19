@@ -375,6 +375,7 @@ const SignupPage = () => {
       
     } catch (error) {
       console.error('Error sending OTP:', error);
+      alert(error.response?.data?.message || "Invalid OTP");
     }
   };
 
@@ -393,8 +394,8 @@ const SignupPage = () => {
 
       // Redirect to login page after successful signup
       setTimeout(() => {
-        console.log("Redirecting to login page...");
-        // e.g., navigate("/login");
+        alert("Redirecting to login...");
+        nav("/login");
       }, 2000);
     } else {
       console.error("⚠️ Verification failed:", response.data.message);
@@ -403,7 +404,6 @@ const SignupPage = () => {
     console.error("❌ Signup OTP verification error:", error.response?.data || error.message);
   }
 };
-
 
   const handleResendOtp = async () => {
     try {

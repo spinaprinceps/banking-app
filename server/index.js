@@ -24,15 +24,17 @@ app.use(cors({
 const authRoutes = require("./Routes/auth");
 app.use("/auth", authRoutes);
 
-const balance=require("./routes/balance");
+const balance=require("./Routes/balance");
 app.use("/auth/balance",balance);
 
-const sendmoney = require("./routes/payment");
+const sendmoney = require("./Routes/payment");
 app.use("/auth/payment", sendmoney);
 
-const transaction=require("./routes/transaction");
-app.use("/auth/transaction",transaction);
+const user_identity = require("./Routes/identity");
+app.use("/auth", user_identity);
 
+const transaction=require("./Routes/trans");
+app.use("/auth/transaction",transaction);
 
 app.use((err, req, res, next) => {
     console.error(err.stack);

@@ -5,7 +5,6 @@ const User = require('../Model/user.js');
 
 router.get('/balance', authMiddleware, async (req, res) => {
   try {
-   
     res.status(200).json({ balance: req.user.balance });
   } catch (err) {
     console.error("Error fetching balance:", err);
