@@ -162,7 +162,9 @@ router.post('/login', async (req, res) => {
     // Send OTP for login confirmation
     //await sendVerificationSms(user.mobile);
   
-    return res.json({ 
+    return res.status(200).json({ 
+        success: true,
+        otpSent: true,  
       message: 'Password verified — OTP sent to mobile. Use /verify-login-otp to complete login.' 
     });
 
