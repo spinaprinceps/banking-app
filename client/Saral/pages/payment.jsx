@@ -26,7 +26,8 @@ const NewPaymentPage = () => {
     balance: 25750.50
   });
 
-  const [currentLanguage] = useState('english');
+  const lang=localStorage.getItem("appLanguage");
+    const [currentLanguage] = useState(lang);
 
   // Get auth token from localStorage on component mount
   useEffect(() => {
@@ -98,8 +99,67 @@ const NewPaymentPage = () => {
         unauthorized: "Session expired. Please login again.",
         tokenExpired: "Authentication token expired. Please login again."
       }
-    }
-  };
+    },
+    hindi: {
+  title: "नया भुगतान",
+  subtitle: "सुरक्षित रूप से पैसा भेजें",
+  bankName: "ग्रामसेवा बैंक",
+  form: {
+    receiverMobile: "प्राप्तकर्ता का मोबाइल नंबर",
+    receiverPlaceholder: "10 अंकों का मोबाइल नंबर दर्ज करें",
+    amount: "भेजी जाने वाली राशि",
+    amountPlaceholder: "₹ में राशि दर्ज करें",
+    password: "आपका खाता पासवर्ड",
+    passwordPlaceholder: "अपना खाता पासवर्ड दर्ज करें"
+  },
+  buttons: {
+    proceedPayment: "भुगतान जारी रखें",
+    confirmPayment: "भुगतान की पुष्टि करें",
+    cancel: "रद्द करें",
+    backToDashboard: "डैशबोर्ड पर वापस जाएं",
+    makeAnotherPayment: "एक और भुगतान करें"
+  },
+  validation: {
+    mobileRequired: "प्राप्तकर्ता का मोबाइल नंबर आवश्यक है",
+    mobileInvalid: "मोबाइल नंबर 10 अंकों का होना चाहिए",
+    mobileSame: "आप अपने ही नंबर पर पैसा नहीं भेज सकते",
+    amountRequired: "राशि आवश्यक है",
+    amountInvalid: "कृपया एक मान्य राशि दर्ज करें",
+    amountMin: "न्यूनतम राशि ₹1 है",
+    amountMax: "राशि आपके बैलेंस से अधिक है",
+    passwordRequired: "पासवर्ड आवश्यक है",
+    tokenMissing: "प्रमाणीकरण टोकन गायब है। कृपया दोबारा लॉगिन करें।"
+  },
+  popup: {
+    confirmTitle: "भुगतान की पुष्टि करें",
+    confirmSubtitle: "कृपया भुगतान विवरण सत्यापित करें",
+    receiverLabel: "भेजा जा रहा है",
+    amountLabel: "राशि",
+    feeLabel: "लेन-देन शुल्क",
+    totalLabel: "कुल राशि",
+    passwordLabel: "पुष्टि के लिए पासवर्ड दर्ज करें",
+    securityNote: "आपका लेन-देन बैंक-ग्रेड एन्क्रिप्शन से सुरक्षित है"
+  },
+  success: {
+    title: "भुगतान सफल!",
+    subtitle: "आपका पैसा सफलतापूर्वक भेज दिया गया है",
+    transactionId: "लेन-देन आईडी",
+    amount: "भेजी गई राशि",
+    receiver: "भेजा गया"
+  },
+  currentBalance: "वर्तमान बैलेंस",
+  transactionFee: "निःशुल्क",
+  processing: "भुगतान प्रक्रिया जारी...",
+  errors: {
+    generic: "भुगतान असफल रहा। कृपया पुनः प्रयास करें।",
+    insufficientBalance: "पर्याप्त बैलेंस नहीं है",
+    invalidCredentials: "अमान्य पासवर्ड",
+    networkError: "नेटवर्क त्रुटि। कृपया अपना कनेक्शन जांचें।",
+    unauthorized: "सत्र समाप्त हो गया। कृपया दोबारा लॉगिन करें।",
+    tokenExpired: "प्रमाणीकरण टोकन समाप्त हो गया। कृपया दोबारा लॉगिन करें।"
+  }
+}
+};
 
   const t = translations[currentLanguage];
 
