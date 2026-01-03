@@ -6,6 +6,7 @@ import api from '../api.js'
 const NewPaymentPage = () => {
   const [formData, setFormData] = useState({
     receiverMobile: '',
+    receiverAadhaar: '',
     amount: '',
     password: ''
   });
@@ -17,15 +18,9 @@ const NewPaymentPage = () => {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [authToken, setAuthToken] = useState(null);
+  const [transferMethod, setTransferMethod] = useState('mobile'); // 'mobile' or 'aadhaar'
+  const [userData, setUserData] = useState(null);
   const nav=useNavigate();
-  // Sample user data (in real app, this would come from context/props)
-  const [userData] = useState({
-    name: "Ravi Kumar",
-    aadhaar: "123456789012",
-    mobile: "9876543210",
-    balance: 25750.50
-  });
-
   const [currentLanguage] = useState('english');
 
   // Get auth token from localStorage on component mount
@@ -37,6 +32,19 @@ const NewPaymentPage = () => {
       console.error('No auth token found. User needs to login.');
       // In real app, redirect to login page
     }
+    // fetch user identity when token exists
+    const fetchIdentity = async () => {
+      if (!token) return;
+      try {
+        const res = await api.get('/auth/identity', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUserData(res.data.user);
+      } catch (err) {
+        console.error('Failed to fetch identity in payment page', err);
+      }
+    }
+    fetchIdentity();
   }, []);
 
   const translations = {
@@ -46,7 +54,9 @@ const NewPaymentPage = () => {
       bankName: "GramSeva Bank",
       form: {
         receiverMobile: "Receiver's Mobile Number",
+        receiverAadhaar: "Receiver's Aadhaar Number",
         receiverPlaceholder: "Enter 10-digit mobile number",
+        aadhaarPlaceholder: "Enter 12-digit Aadhaar number",
         amount: "Amount to Send",
         amountPlaceholder: "Enter amount in ₹",
         password: "Your Account Password",
@@ -110,13 +120,23 @@ const NewPaymentPage = () => {
     if (!authToken) {
       newErrors.token = t.validation.tokenMissing;
     }
-    
-    if (!formData.receiverMobile) {
-      newErrors.receiverMobile = t.validation.mobileRequired;
-    } else if (formData.receiverMobile.length !== 10 || !/^\d{10}$/.test(formData.receiverMobile)) {
-      newErrors.receiverMobile = t.validation.mobileInvalid;
-    } else if (formData.receiverMobile === userData.mobile) {
-      newErrors.receiverMobile = t.validation.mobileSame;
+    if (transferMethod === 'mobile') {
+      if (!formData.receiverMobile) {
+        newErrors.receiverMobile = t.validation.mobileRequired;
+      } else if (formData.receiverMobile.length !== 10 || !/^\d{10}$/.test(formData.receiverMobile)) {
+        newErrors.receiverMobile = t.validation.mobileInvalid;
+      } else if (userData && formData.receiverMobile === userData.mobile) {
+        newErrors.receiverMobile = t.validation.mobileSame;
+      }
+    } else {
+      // Aadhaar validation
+      if (!formData.receiverAadhaar) {
+        newErrors.receiverAadhaar = t.validation.aadhaarRequired || 'Aadhaar is required';
+      } else if (!/^\d{12}$/.test(formData.receiverAadhaar)) {
+        newErrors.receiverAadhaar = t.validation.aadhaarInvalid || 'Aadhaar must be 12 digits';
+      } else if (userData && formData.receiverAadhaar === userData.aadhar) {
+        newErrors.receiverAadhaar = t.validation.aadhaarSame || 'Cannot send to your own Aadhaar';
+      }
     }
     
     if (!formData.amount) {
@@ -127,7 +147,7 @@ const NewPaymentPage = () => {
         newErrors.amount = t.validation.amountInvalid;
       } else if (amount < 1) {
         newErrors.amount = t.validation.amountMin;
-      } else if (amount > userData.balance) {
+      } else if (userData && amount > userData.balance) {
         newErrors.amount = t.validation.amountMax;
       }
     }
@@ -157,6 +177,14 @@ const NewPaymentPage = () => {
     // Format mobile input - only numbers
     if (name === 'receiverMobile') {
       const formattedValue = value.replace(/[^0-9]/g, '').slice(0, 10);
+      setFormData(prev => ({
+        ...prev,
+        [name]: formattedValue
+      }));
+    }
+    // Format aadhaar input - only numbers
+    else if (name === 'receiverAadhaar') {
+      const formattedValue = value.replace(/[^0-9]/g, '').slice(0, 12);
       setFormData(prev => ({
         ...prev,
         [name]: formattedValue
@@ -207,17 +235,22 @@ const NewPaymentPage = () => {
 
   try {
     // Prepare payment data
-    const paymentData = {
-      receiverNumber: formData.receiverMobile,
-      amount: parseFloat(formData.amount),
-      password: formData.password,
-    };
+    const paymentAmount = parseFloat(formData.amount);
+    let endpoint = "/auth/payment/transfer";
+    let payload = { amount: paymentAmount, password: formData.password };
 
-    console.log("Sending payment request with token:", authToken);
-    console.log("Payment data:", paymentData);
+    if (transferMethod === 'mobile') {
+      payload.receiverNumber = formData.receiverMobile;
+      endpoint = "/auth/payment/transfer";
+    } else {
+      payload.receiverAadhaar = formData.receiverAadhaar;
+      endpoint = "/auth/payment/transfer/aadhaar";
+    }
 
-    // Axios request
-    const response = await api.post("/auth/payment/transfer", paymentData, {
+    console.log("Sending payment request to", endpoint, "with token:", authToken);
+    console.log("Payment payload:", payload);
+
+    const response = await api.post(endpoint, payload, {
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
@@ -275,6 +308,7 @@ const NewPaymentPage = () => {
   const handleMakeAnotherPayment = () => {
     setFormData({
       receiverMobile: '',
+      receiverAadhaar: '',
       amount: '',
       password: ''
     });
@@ -293,6 +327,11 @@ const NewPaymentPage = () => {
 
   const formatMobile = (mobile) => {
     return `+91 ${mobile}`;
+  };
+
+  const maskAadhaar = (aadhaar) => {
+    if (!aadhaar || aadhaar.length < 4) return aadhaar || '';
+    return `XXXX XXXX ${aadhaar.slice(-4)}`;
   };
 
   const calculateTotal = () => {
@@ -354,7 +393,7 @@ const NewPaymentPage = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">{t.success.receiver}:</span>
-              <span className="font-mono text-sm">{formatMobile(formData.receiverMobile)}</span>
+              <span className="font-mono text-sm">{transferMethod === 'mobile' ? formatMobile(formData.receiverMobile) : maskAadhaar(formData.receiverAadhaar)}</span>
             </div>
           </div>
           
@@ -401,7 +440,7 @@ const NewPaymentPage = () => {
             
             <div className="bg-green-100 px-4 py-2 rounded-lg">
               <span className="text-sm text-green-700">{t.currentBalance}: </span>
-              <span className="font-semibold text-green-800">{formatCurrency(userData.balance)}</span>
+              <span className="font-semibold text-green-800">{userData ? formatCurrency(userData.balance) : '—'}</span>
             </div>
           </div>
         </div>
@@ -423,30 +462,60 @@ const NewPaymentPage = () => {
 
           {/* Payment Form */}
           <form onSubmit={handleProceedPayment} className="space-y-6">
-            {/* Receiver Mobile Field */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t.form.receiverMobile} *
-              </label>
-              <div className="relative">
-                <Smartphone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <div className="absolute left-10 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
-                  +91
-                </div>
-                <input
-                  type="text"
-                  name="receiverMobile"
-                  value={formData.receiverMobile}
-                  onChange={handleInputChange}
-                  placeholder={t.form.receiverPlaceholder}
-                  maxLength={10}
-                  className={`w-full pl-16 pr-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors ${
-                    errors.receiverMobile ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-green-500'
-                  }`}
-                />
+              {/* Transfer method selector */}
+              <div className="flex items-center space-x-4">
+                <label className={`px-3 py-2 rounded-lg cursor-pointer ${transferMethod === 'mobile' ? 'bg-green-100' : 'bg-white'}`}>
+                  <input type="radio" name="method" value="mobile" checked={transferMethod === 'mobile'} onChange={() => setTransferMethod('mobile')} className="mr-2" /> Mobile
+                </label>
+                <label className={`px-3 py-2 rounded-lg cursor-pointer ${transferMethod === 'aadhaar' ? 'bg-green-100' : 'bg-white'}`}>
+                  <input type="radio" name="method" value="aadhaar" checked={transferMethod === 'aadhaar'} onChange={() => setTransferMethod('aadhaar')} className="mr-2" /> Aadhaar
+                </label>
               </div>
-              {errors.receiverMobile && <p className="text-red-500 text-sm mt-1">{errors.receiverMobile}</p>}
-            </div>
+
+              {/* Receiver Field - mobile or aadhaar */}
+              {transferMethod === 'mobile' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t.form.receiverMobile} *
+                  </label>
+                  <div className="relative">
+                    <Smartphone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                    <div className="absolute left-10 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+                      +91
+                    </div>
+                    <input
+                      type="text"
+                      name="receiverMobile"
+                      value={formData.receiverMobile}
+                      onChange={handleInputChange}
+                      placeholder={t.form.receiverPlaceholder}
+                      maxLength={10}
+                      className={`w-full pl-16 pr-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors ${
+                        errors.receiverMobile ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-green-500'
+                      }`}
+                    />
+                  </div>
+                  {errors.receiverMobile && <p className="text-red-500 text-sm mt-1">{errors.receiverMobile}</p>}
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t.form.receiverAadhaar} *
+                  </label>
+                  <input
+                    type="text"
+                    name="receiverAadhaar"
+                    value={formData.receiverAadhaar}
+                    onChange={handleInputChange}
+                    placeholder={t.form.aadhaarPlaceholder}
+                    maxLength={12}
+                    className={`w-full pl-4 pr-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors ${
+                      errors.receiverAadhaar ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-green-500'
+                    }`}
+                  />
+                  {errors.receiverAadhaar && <p className="text-red-500 text-sm mt-1">{errors.receiverAadhaar}</p>}
+                </div>
+              )}
 
             {/* Amount Field */}
             <div>
